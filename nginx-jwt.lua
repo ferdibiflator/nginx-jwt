@@ -2,6 +2,8 @@ local jwt = require "resty.jwt"
 local cjson = require "cjson"
 local basexx = require "basexx"
 local secret = os.getenv("JWT_SECRET")
+local token_site = os.getenv("JWT_TOKEN_SITE")
+local token_site_name = os.getenv("JWT_TOKEN_SITE_NAME")
 
 assert(secret ~= nil, "Environment variable JWT_SECRET not set")
 
@@ -20,19 +22,20 @@ if os.getenv("JWT_SECRET_IS_BASE64_ENCODED") == 'true' then
     secret = basexx.from_base64(secret)
 end
 
+if token_site == nil then
+    token_site = "HEADER"
+end
+
+if token_site_name == nil then
+    token_site_name = "bearer"
+end
+
 local M = {}
 
 function M.auth(claim_specs)
     -- require Authorization request header
     local auth_header = ngx.var.http_Authorization
 
-    token_site = os.getenv("NGINX_JWT_TOKEN_SITE")
-    
-    if token_site == nil then 
-        ngx.log(ngx.WARN, "No token site found, use default: HEADER")
-        token_site = "HEADER"
-    end
-    
     if token_site == "HEADER" then
         if auth_header == nil then
             ngx.log(ngx.WARN, "No Authorization header")
@@ -47,11 +50,11 @@ function M.auth(claim_specs)
     end
     
     if token_site == "COOKIE" then
-        token = ngx.var.cookie_bearer
+        token = ngx.var["cookie_" .. token_site_name]
     end
     
     if token_site == "REQUEST" then
-        token = ngx.var.arg_bearer
+        token = ngx.var["arg_" .. token_site_name]
     end
     
     if token == nil then
